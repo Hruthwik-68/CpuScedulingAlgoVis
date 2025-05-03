@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CPU Scheduler Visualizer</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      text-align: center;
+      transition: background 0.3s ease;
+    }
+  
+    h1 {
+      margin-top: 20px;
+      font-size: 2rem;
+      color: #58a6ff;
+    }
+  
+    .tabs {
+      margin: 10px;
+    }
+  
+    button {
+      background: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+      padding: 10px 18px;
+      margin: 5px;
+      cursor: pointer;
+      border-radius: 6px;
+      font-size: 1rem;
+      transition: all 0.3s ease;
+    }
+  
+    button:hover {
+      background: #30363d;
+      color: #58a6ff;
+      transform: scale(1.05);
+    }
+  
+    .mode-toggle, .algorithm-buttons {
+      margin: 20px;
+      animation: fadeIn 0.6s ease-in-out;
+    }
+  
+    #inputArea {
+      display: none;
+      margin-bottom: 20px;
+      animation: slideDown 0.5s ease forwards;
+    }
+  
+    input, select {
+      padding: 8px;
+      margin: 5px;
+      border-radius: 5px;
+      border: 1px solid #30363d;
+      background: #161b22;
+      color: #c9d1d9;
+      width: 200px;
+      transition: border 0.3s ease;
+    }
+  
+    input:focus {
+      border-color: #58a6ff;
+      outline: none;
+    }
+  
+    canvas {
+      margin: 20px auto;
+      background: #161b22;
+      border: 1px solid #30363d;
+      display: block;
+      border-radius: 8px;
+      animation: fadeIn 0.5s ease-in;
+    }
+  
+    .explanation {
+      margin-top: 20px;
+      padding: 15px;
+      background: #1c2128;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      width: 85%;
+      margin-left: auto;
+      margin-right: auto;
+      text-align: left;
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+  
+    .process-table {
+      margin: 10px auto;
+      width: 90%;
+      border-collapse: collapse;
+      animation: fadeIn 0.5s ease-in;
+    }
+  
+    .process-table th, .process-table td {
+      border: 1px solid #30363d;
+      padding: 8px;
+      background: #161b22;
+    }
+  
+    .process-table th {
+      background: #21262d;
+      color: #58a6ff;
+    }
+  
+    .help {
+      background: #1c2128;
+      padding: 15px;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      margin: 20px auto;
+      width: 85%;
+      text-align: left;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      animation: fadeIn 0.7s ease-in;
+    }
+  
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  
+    @keyframes slideDown {
+      from { opacity: 0; max-height: 0; }
+      to { opacity: 1; max-height: 1000px; }
+    }
+  </style>
+  
+</head>
+<body>
+  <h1>CPU Scheduling Algorithm Visualizer - Hruthwik M</h1>
+
+  <div class="help">
+    <h3>📘 What is CPU Scheduling?</h3>
+    <p>CPU Scheduling decides which process (task) runs next on the processor. This simulator helps you visualize how different algorithms work:</p>
+    <ul>
+      <li><b>CFS</b>: Picks process with least execution time.</li>
+      <li><b>MLFQ</b>: Gives higher priority to short tasks and lets tasks change levels.</li>
+      <li><b>RR</b>: Gives each process a fixed time (like taking turns).</li>
+      <li><b>EDF</b>: Picks process with the earliest deadline.</li>
+      <li><b>O(1)</b>: Schedules in constant time based on ready queue.</li>
+    </ul>
+  </div>
+
+  <div class="mode-toggle">
+    <button id="btnHardcoded">Use Hardcoded Input</button>
+    <button onclick="toggleDynamic()">Dynamic Input</button>
+  </div>
+
+  <div id="inputArea">
+    <p>🔸 <b>PID</b>: Unique name for process (e.g., P1)<br>
+    🔸 <b>Arrival Time</b>: When process comes to CPU<br>
+    🔸 <b>Burst Time</b>: How long it needs CPU<br>
+    🔸 <b>Priority</b>: (used in MLFQ) Lower number = higher priority<br>
+    🔸 <b>Deadline</b>: (used in EDF) Smallest deadline goes first</p>
+    <input id="pid" placeholder="PID">
+    <input id="arrival" placeholder="Arrival Time" type="number">
+    <input id="burst" placeholder="Burst Time" type="number">
+    <input id="priority" placeholder="Priority (Optional)" type="number">
+    <input id="deadline" placeholder="Deadline (for EDF)" type="number">
+    <button onclick="addProcess()">Add Process</button>
+    <button onclick="startSimulation()">Start Simulation</button>
+  </div>
+
+  <div class="algorithm-buttons">
+    <button onclick="setAlgorithm('CFS')">CFS</button>
+    <button onclick="setAlgorithm('MLFQ')">MLFQ</button>
+    <button onclick="setAlgorithm('RR')">Round Robin</button>
+    <button onclick="setAlgorithm('EDF')">EDF</button>
+    <button onclick="setAlgorithm('O1')">O(1)</button>
+  </div>
+
+  <div id="explanation" class="explanation"></div>
+
+  <table class="process-table" id="processTable" style="display:none">
+    <thead>
+      <tr><th>PID</th><th>Arrival</th><th>Burst</th><th>Priority</th><th>Deadline</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <canvas id="canvas" width="900" height="300"></canvas>
+
+  <script>
+    let mode = 'hardcoded';
+    let algorithm = 'CFS';
+    let processes = [];
+    let queue = [];
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const explanationDiv = document.getElementById("explanation");
+
+    document.getElementById("btnHardcoded").addEventListener("click", useHardcoded);
+
+    function toggleDynamic() {
+      mode = 'dynamic';
+      document.getElementById('inputArea').style.display = 'block';
+      document.getElementById('processTable').style.display = 'table';
+      processes = [];
+      renderProcessTable();
+      clearCanvas();
+    }
+
+    function useHardcoded() {
+      mode = 'hardcoded';
+      document.getElementById('inputArea').style.display = 'none';
+      document.getElementById('processTable').style.display = 'table';
+      processes = [
+        { pid: 'P1', arrival: 0, burst: 5, priority: 2, deadline: 10 },
+        { pid: 'P2', arrival: 2, burst: 3, priority: 1, deadline: 8 },
+        { pid: 'P3', arrival: 4, burst: 1, priority: 3, deadline: 6 },
+        { pid: 'P4', arrival: 5, burst: 7, priority: 2, deadline: 12 }
+      ];
+      renderProcessTable();
+      startSimulation();
+    }
+
+    function addProcess() {
+      let pid = document.getElementById('pid').value;
+      let arrival = parseInt(document.getElementById('arrival').value);
+      let burst = parseInt(document.getElementById('burst').value);
+      let priority = parseInt(document.getElementById('priority').value || 0);
+      let deadline = parseInt(document.getElementById('deadline').value || 999);
+      processes.push({ pid, arrival, burst, priority, deadline });
+      renderProcessTable();
+    }
+
+    function renderProcessTable() {
+      const tbody = document.querySelector("#processTable tbody");
+      tbody.innerHTML = "";
+      processes.forEach(p => {
+        let row = `<tr><td>${p.pid}</td><td>${p.arrival}</td><td>${p.burst}</td><td>${p.priority}</td><td>${p.deadline}</td></tr>`;
+        tbody.innerHTML += row;
+      });
+    }
+
+    function setAlgorithm(algo) {
+      algorithm = algo;
+      if (mode === 'hardcoded') startSimulation();
+    }
+
+    function startSimulation() {
+      clearCanvas();
+      queue = [];
+      let currentTime = 0;
+      let log = [];
+      let explanation = [];
+
+      let procs = JSON.parse(JSON.stringify(processes));
+
+      switch (algorithm) {
+        case 'CFS':
+          procs.sort((a, b) => a.burst - b.burst);
+          explanation.push("CFS chooses the process with the smallest burst time.");
+          break;
+        case 'MLFQ':
+          procs.sort((a, b) => a.priority - b.priority);
+          explanation.push("MLFQ gives higher priority to lower priority values (interactive tasks).");
+          break;
+        case 'RR':
+          explanation.push("Round Robin gives each process a fixed time slice (quantum = 2).");
+          let quantum = 2;
+          while (procs.length) {
+            let p = procs.shift();
+            if (p.burst > quantum) {
+              log.push({ pid: p.pid, start: currentTime, duration: quantum });
+              explanation.push(`${p.pid} runs from ${currentTime} to ${currentTime + quantum}`);
+              currentTime += quantum;
+              p.burst -= quantum;
+              procs.push(p);
+            } else {
+              log.push({ pid: p.pid, start: currentTime, duration: p.burst });
+              explanation.push(`${p.pid} finishes from ${currentTime} to ${currentTime + p.burst}`);
+              currentTime += p.burst;
+            }
+          }
+          explanationDiv.innerHTML = explanation.join("<br>");
+          draw(log);
+          return;
+        case 'EDF':
+          procs.sort((a, b) => a.deadline - b.deadline);
+          explanation.push("EDF chooses the process with the earliest deadline.");
+          break;
+        case 'O1':
+          procs.sort((a, b) => a.arrival - b.arrival);
+          explanation.push("O(1) executes processes as they arrive (simple FIFO).");
+          break;
+      }
+
+      procs.forEach(p => {
+        log.push({ pid: p.pid, start: currentTime, duration: p.burst });
+        explanation.push(`${p.pid} starts at ${currentTime}, runs for ${p.burst}`);
+        currentTime += p.burst;
+      });
+
+      explanationDiv.innerHTML = explanation.join("<br>");
+      draw(log);
+    }
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function draw(log) {
+      clearCanvas();
+      let x = 10;
+      const height = 50;
+
+      log.forEach((item, index) => {
+        setTimeout(() => {
+          ctx.fillStyle = `hsl(${index * 60}, 70%, 50%)`;
+          ctx.fillRect(x, 100, item.duration * 40, height);
+          ctx.fillStyle = 'white';
+          ctx.fillText(item.pid, x + 5, 95);
+          x += item.duration * 40;
+        }, index * 1000);
+      });
+    }
+  </script>
+</body>
+</html>
